@@ -37,7 +37,7 @@
 
             # Rust and LSP
             rust-analyzer
-            rust-bin.beta.latest.default
+            rust-bin.nightly.latest.default
 
             # Bevy dependencies
             alsa-lib
