@@ -21,6 +21,7 @@ fn main() {
             camera::CameraPlugin,
             debug_environment::DebugEnvironmentPlugin,
             player::PlayerPlugin,
+            physics::CharacterPhysicsPlugin,
         ))
         .run();
 }

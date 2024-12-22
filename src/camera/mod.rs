@@ -53,6 +53,11 @@ impl CameraConfig {
         Quat::from_axis_angle(Vec3::Y, self.y_angle.to_radians())
             * Quat::from_axis_angle(Vec3::X, self.x_angle.to_radians())
     }
+
+    pub fn interpolate(&self, input: Vec2) -> Vec3 {
+        let direction = self.rotation() * Vec3::new(input.x, 0.0, -input.y);
+        Vec3::new(direction.x, 0.0, direction.z).normalize_or_zero()
+    }
 }
 
 fn read_rotation_inputs(
