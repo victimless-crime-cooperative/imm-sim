@@ -1,3 +1,4 @@
+use crate::player::{Player, PlayerState};
 use bevy::{input::mouse::AccumulatedMouseMotion, prelude::*};
 
 pub struct CameraPlugin;
@@ -33,7 +34,7 @@ pub struct CameraConfig {
 impl Default for CameraConfig {
     fn default() -> Self {
         Self {
-            smoothing: 5.0,
+            smoothing: 20.0,
             sensitivity: CameraSensitivity::default(),
             x_angle: 0.0,
             y_angle: 0.0,
@@ -61,8 +62,8 @@ fn read_rotation_inputs(
 ) {
     if mouse_motion.delta != Vec2::ZERO {
         let Vec2 { x, y } = mouse_motion.delta;
-        let x_rotation = time.delta_secs() * camera_config.sensitivity.y * 180.0 * -y;
-        let y_rotation = time.delta_secs() * camera_config.sensitivity.x * 180.0 * x;
+        let x_rotation = time.delta_secs() * camera_config.sensitivity.y * 45.0_f32 * -y;
+        let y_rotation = time.delta_secs() * camera_config.sensitivity.x * 45.0_f32 * -x;
         camera_config.rotate(x_rotation, y_rotation);
     }
 }
@@ -73,17 +74,8 @@ pub struct MainCamera;
 fn setup(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_translation(Vec3::Y),
+        Transform::from_translation(Vec3::ZERO),
         MainCamera,
-    ));
-
-    use crate::debug_environment::Block;
-
-    commands.queue(Block::new(Vec3::X, Vec3::ONE, Color::srgb(1.0, 0.0, 0.0)));
-    commands.queue(Block::new(
-        Vec3::NEG_X,
-        Vec3::ONE,
-        Color::srgb(1.0, 0.0, 0.0),
     ));
 }
 
@@ -91,8 +83,21 @@ fn position_camera(
     time: Res<Time>,
     camera_config: Res<CameraConfig>,
     camera: Single<&mut Transform, With<MainCamera>>,
+    player_entity: Single<(&Player, &PlayerState, &Transform), Without<MainCamera>>,
 ) {
     let mut camera_transform = camera.into_inner();
+    let (player, player_state, player_transform) = player_entity.into_inner();
+
+    let desired_translation = match *player_state {
+        PlayerState::Crouching => player_transform.translation,
+        _ => player_transform.translation + Vec3::Y * (player.height * 0.4),
+    };
+
+    camera_transform.translation.smooth_nudge(
+        &desired_translation,
+        camera_config.smoothing,
+        time.delta_secs(),
+    );
     camera_transform.rotation.smooth_nudge(
         &camera_config.rotation(),
         camera_config.smoothing,

@@ -1,4 +1,13 @@
+use avian3d::prelude::*;
 use bevy::prelude::*;
+
+pub struct DebugEnvironmentPlugin;
+
+impl Plugin for DebugEnvironmentPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, setup);
+    }
+}
 
 pub struct Block {
     translation: Vec3,
@@ -30,6 +39,31 @@ impl Command for Block {
             Mesh3d(mesh_handle),
             MeshMaterial3d(material_handle),
             Transform::from_translation(self.translation),
+            RigidBody::Static,
+            Collider::cuboid(self.extents.x, self.extents.y, self.extents.z),
         ));
     }
+}
+
+pub fn setup(mut commands: Commands) {
+    commands.queue(Block::new(
+        Vec3::X * 2.0,
+        Vec3::ONE,
+        Color::srgb(1.0, 0.0, 0.0),
+    ));
+    commands.queue(Block::new(
+        Vec3::NEG_X * 2.0,
+        Vec3::ONE,
+        Color::srgb(1.0, 0.0, 0.0),
+    ));
+    commands.queue(Block::new(
+        Vec3::Z * 2.0,
+        Vec3::ONE,
+        Color::srgb(0.0, 1.0, 0.0),
+    ));
+    commands.queue(Block::new(
+        Vec3::NEG_Y * 0.5,
+        Vec3::new(5.0, 0.5, 5.0),
+        Color::WHITE,
+    ));
 }
