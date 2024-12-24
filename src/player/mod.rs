@@ -35,9 +35,9 @@ fn read_movement_inputs(
 }
 
 #[derive(Component)]
-pub struct PlayerHeadCollider;
+pub struct PlayerTopCollider;
 #[derive(Component)]
-pub struct PlayerFeetCollider;
+pub struct PlayerBottomCollider;
 #[derive(Component, Default)]
 pub struct Player {
     pub height: f32,
@@ -74,12 +74,12 @@ impl Command for SpawnPlayer {
             .with_children(|parent| {
                 parent.spawn((
                     Transform::from_translation(Vec3::Y * self.height * 0.75),
-                    PlayerHeadCollider,
+                    PlayerTopCollider,
                     Collider::sphere(0.25),
                 ));
                 parent.spawn((
                     Transform::from_translation(Vec3::Y * self.height * 0.25),
-                    PlayerFeetCollider,
+                    PlayerBottomCollider,
                     Collider::sphere(0.25),
                 ));
             });
