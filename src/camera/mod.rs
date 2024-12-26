@@ -34,7 +34,7 @@ pub struct CameraConfig {
 impl Default for CameraConfig {
     fn default() -> Self {
         Self {
-            smoothing: 20.0,
+            smoothing: 19.0,
             sensitivity: CameraSensitivity::default(),
             x_angle: 0.0,
             y_angle: 0.0,

@@ -49,7 +49,7 @@ impl Command for SpawnPlayer {
                 MovementAcceleration::default(),
                 LateralDamping::default(),
                 ShapeCaster::new(
-                    Collider::capsule(0.2, 1.0),
+                    Collider::sphere(0.3),
                     Vec3::ZERO,
                     Quat::IDENTITY,
                     Dir3::NEG_Y,
