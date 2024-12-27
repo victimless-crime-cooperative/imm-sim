@@ -8,7 +8,11 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup)
-            .add_systems(Update, (read_movement_inputs, handle_grounded));
+            .add_systems(
+                Update,
+                (read_movement_inputs, handle_grounded, handle_head_collider),
+            )
+            .register_type::<PlayerState>();
     }
 }
 
@@ -21,7 +25,8 @@ pub struct Player {
     pub height: f32,
 }
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Reflect)]
+#[reflect(Component)]
 pub enum PlayerState {
     Standing,
     Crouching,
@@ -38,6 +43,7 @@ impl Command for SpawnPlayer {
     fn apply(self, world: &mut World) {
         world
             .spawn((
+                Name::from("Player"),
                 Player {
                     height: self.height,
                 },
@@ -49,24 +55,24 @@ impl Command for SpawnPlayer {
                 MovementAcceleration::default(),
                 LateralDamping::default(),
                 ShapeCaster::new(
-                    Collider::sphere(0.3),
-                    Vec3::ZERO,
+                    Collider::sphere(self.height * 0.15),
+                    Vec3::NEG_Y * (self.height * 0.4),
                     Quat::IDENTITY,
                     Dir3::NEG_Y,
                 )
                 .with_ignore_self(true)
-                .with_max_distance(1.0),
+                .with_max_distance(self.height * 0.6),
             ))
             .with_children(|parent| {
                 parent.spawn((
-                    Transform::from_translation(Vec3::Y * self.height * 0.75),
+                    Transform::from_translation(Vec3::Y * (self.height * 0.25)),
                     PlayerTopCollider,
-                    Collider::sphere(0.25),
+                    Collider::sphere(self.height * 0.25),
                 ));
                 parent.spawn((
-                    Transform::from_translation(Vec3::Y * self.height * 0.25),
+                    Transform::from_translation(Vec3::NEG_Y * (self.height * 0.25)),
                     PlayerBottomCollider,
-                    Collider::sphere(0.25),
+                    Collider::sphere(self.height * 0.25),
                 ));
             });
     }
@@ -74,7 +80,7 @@ impl Command for SpawnPlayer {
 
 fn setup(mut commands: Commands) {
     commands.queue(SpawnPlayer {
-        height: 2.0,
+        height: 1.0,
         translation: Vec3::NEG_Z + Vec3::Y * 30.0,
     });
 }
@@ -98,6 +104,29 @@ fn read_movement_inputs(
 
     if direction != Vec3::ZERO {
         commands.trigger_targets(StandingAction::Run(direction), player_entity);
+    }
+}
+
+fn handle_head_collider(
+    mut commands: Commands,
+    player_query: Query<&PlayerState>,
+    head_query: Query<(Entity, Has<Sensor>), With<PlayerTopCollider>>,
+) {
+    for player in &player_query {
+        for (head, has_sensor) in &head_query {
+            match *player {
+                PlayerState::Crouching => {
+                    if !has_sensor {
+                        commands.entity(head).insert(Sensor);
+                    }
+                }
+                _ => {
+                    if has_sensor {
+                        commands.entity(head).remove::<Sensor>();
+                    }
+                }
+            }
+        }
     }
 }
 

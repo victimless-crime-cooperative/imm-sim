@@ -94,7 +94,9 @@ fn position_camera(
     let (player, player_state, player_transform) = player_entity.into_inner();
 
     let desired_translation = match *player_state {
-        PlayerState::Crouching => player_transform.translation,
+        PlayerState::Crouching => {
+            player_transform.translation + (Vec3::NEG_Y * player.height * 0.2)
+        }
         _ => player_transform.translation + Vec3::Y * (player.height * 0.4),
     };
 
