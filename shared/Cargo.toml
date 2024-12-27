@@ -1,18 +1,12 @@
 [package]
-name = "imm-sim-server"
+name = "imm-sim-shared"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 bevy = "0.15"
-bevy-inspector-egui = "0.28"
-bevy_renet = "1"
 bevy_replicon = "0.29"
-bevy_replicon_renet = "0.6"
-clap = { version = "4", features = ["derive"] }
-rand = "0.8"
-
-imm-sim-shared = { path = "../shared" }
+serde = { version = "1", features = ["derive"] }
 
 [dependencies.avian3d]
 version = "0.2"
