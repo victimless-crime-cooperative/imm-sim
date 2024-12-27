@@ -21,3 +21,8 @@ features = [
   "parallel",
   "serialize",
 ]
+
+[features]
+default = []
+client = []
+server = []

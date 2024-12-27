@@ -2,12 +2,14 @@ use bevy::prelude::*;
 use imm_sim_shared::ProtocolPlugin;
 
 use self::{
-    connect::FormConnectionPlugin, input::InputCollectionPlugin, state_mirroring::MirrorStatePlugin,
+    connect::FormConnectionPlugin, input::InputCollectionPlugin, physics::ClientPhysicsPlugin,
+    player::ClientPlayerPlugin,
 };
 
 pub mod connect;
 pub mod input;
-pub mod state_mirroring;
+pub mod physics;
+pub mod player;
 
 pub struct ImmSimClientPlugin;
 
@@ -19,7 +21,7 @@ impl Plugin for ImmSimClientPlugin {
         app.add_plugins(FormConnectionPlugin);
         // Collect inputs and commands
         app.add_plugins(InputCollectionPlugin);
-        // Mirror state from replicated components to regular components.
-        app.add_plugins(MirrorStatePlugin);
+        // State sync
+        app.add_plugins((ClientPhysicsPlugin, ClientPlayerPlugin));
     }
 }

@@ -13,4 +13,4 @@ bevy_replicon = "0.29"
 bevy_replicon_renet = "0.6"
 
 imm-sim-server = { path = "../server" }
-imm-sim-shared = { path = "../shared" }
+imm-sim-shared = { path = "../shared", features = ["client"] }

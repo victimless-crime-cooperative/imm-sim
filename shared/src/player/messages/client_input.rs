@@ -1,6 +1,10 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+/// A small enum denoting how a digital input has been modulated since the last tick.
+///
+/// This allows the server to assume that, for example, a crouching player remains crouching should
+/// a single message not be delivered.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub enum DigitalInput {
     #[default]
@@ -9,6 +13,9 @@ pub enum DigitalInput {
     ContinuePress,
     ReleasePress,
 }
+
+/// Each tick, the client should dispatch one of these events such as to notify the server of all
+/// inputs from the last tick.
 
 #[derive(Clone, Copy, Debug, Deserialize, Event, Serialize)]
 pub struct C2SInputEvent {

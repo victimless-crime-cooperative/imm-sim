@@ -1,60 +1,15 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::BTreeSet;
 
 use bevy::prelude::*;
-use bevy_renet::renet::ServerEvent;
 use bevy_replicon::prelude::*;
 use imm_sim_shared::{
-    self,
     handshake::{C2SHandshakeStart, S2CHandshakeResult},
-    player::{SpawnPlayerCommandsExt, messages::server_commands::S2CSpawnPlayerCommand},
+    player::SpawnPlayerCommandsExt,
 };
 use rand::{Rng, thread_rng};
 
+use super::tracking::ConnectionTracker;
 use crate::RoomAuthentication;
-
-#[derive(Default, Resource)]
-pub struct ConnectionTracker {
-    conn_id_to_avatar: BTreeMap<u64, Entity>,
-
-    conn_id_to_display_name: BTreeMap<u64, String>,
-    display_name_to_conn_id: HashMap<String, u64>,
-}
-
-impl ConnectionTracker {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn track_connection(&mut self, conn_id: u64, avatar: Entity, display_name: String) {
-        self.conn_id_to_avatar.insert(conn_id, avatar);
-        self.conn_id_to_display_name
-            .insert(conn_id, display_name.clone());
-        self.display_name_to_conn_id.insert(display_name, conn_id);
-    }
-
-    pub fn drop_connection(&mut self, conn_id: u64) -> Option<(Entity, String)> {
-        let avatar = self.conn_id_to_avatar.remove(&conn_id)?;
-        let display_name = self.conn_id_to_display_name.remove(&conn_id)?;
-
-        let _ = self.display_name_to_conn_id.remove(&display_name);
-
-        Some((avatar, display_name))
-    }
-
-    pub fn get_avatar(&self, conn_id: u64) -> Option<Entity> {
-        self.conn_id_to_avatar.get(&conn_id).map(|entity| *entity)
-    }
-
-    pub fn get_display_name(&self, conn_id: u64) -> Option<&str> {
-        self.conn_id_to_display_name
-            .get(&conn_id)
-            .map(String::as_str)
-    }
-
-    pub fn id_from_display_name(&self, name: &str) -> Option<u64> {
-        self.display_name_to_conn_id.get(name).map(|id| *id)
-    }
-}
 
 #[derive(Default, Resource)]
 pub struct AwaitingHandshakes {
@@ -72,11 +27,13 @@ pub fn handle_connection_events(
     for event in reader.read() {
         match event {
             ServerEvent::ClientConnected { client_id } => {
+                let client_id = client_id.get();
                 info!("Client {client_id} has successfully connected to the server.");
-                awaiting_handshakes.set.insert(*client_id);
+                awaiting_handshakes.set.insert(client_id);
             }
             ServerEvent::ClientDisconnected { client_id, reason } => {
-                match conn_tracker.drop_connection(*client_id) {
+                let client_id = client_id.get();
+                match conn_tracker.drop_connection(client_id) {
                     Some((avatar, display_name)) => {
                         info!("{display_name} disconnected from the server for {reason}.");
                         commands.entity(avatar).despawn_recursive();
@@ -93,8 +50,7 @@ pub fn handle_connection_events(
 
 pub fn handle_handshake_events(
     mut reader: EventReader<FromClient<C2SHandshakeStart>>,
-    mut handshake_writer: EventWriter<ToClients<S2CHandshakeResult>>,
-    mut client_spawn_writer: EventWriter<ToClients<S2CSpawnPlayerCommand>>,
+    mut writer: EventWriter<ToClients<S2CHandshakeResult>>,
 
     authentication: Res<RoomAuthentication>,
     mut awaiting_handshakes: ResMut<AwaitingHandshakes>,
@@ -123,7 +79,7 @@ pub fn handle_handshake_events(
                         event,
                     };
 
-                    handshake_writer.send(event);
+                    writer.send(event);
                     continue;
                 }
             } else {
@@ -135,7 +91,7 @@ pub fn handle_handshake_events(
                     event,
                 };
 
-                handshake_writer.send(event);
+                writer.send(event);
                 continue;
             }
         }
@@ -153,13 +109,12 @@ pub fn handle_handshake_events(
                 event,
             };
 
-            handshake_writer.send(event);
+            writer.send(event);
             continue;
         }
 
         // If all checks pass, send the `ConnectionAccepted` response to the client, spawn a player
-        // for this new connection, begin tracking and replicating all relevant information, and
-        // send the command to spawn the player on all clients.
+        // for this new connection, begin tracking and replicating all relevant information.
         let event = S2CHandshakeResult::ConnectionAccepted {
             client_id: client_id.get(),
         };
@@ -168,7 +123,7 @@ pub fn handle_handshake_events(
             event,
         };
 
-        handshake_writer.send(event);
+        writer.send(event);
 
         awaiting_handshakes.set.remove(&client_id.get());
 
@@ -190,22 +145,16 @@ pub fn handle_handshake_events(
             Color::srgb_u8(r, g, b)
         };
 
-        let event = S2CSpawnPlayerCommand {
-            for_client_id: client_id.get(),
-            display_name: display_name.clone(),
-            initial_translation: translation,
-            initial_rotation: Quat::IDENTITY,
-            initial_color: color,
-        };
+        let entity_id = commands
+            .spawn_player(
+                client_id.get(),
+                display_name.clone(),
+                translation,
+                Quat::IDENTITY,
+                color,
+            )
+            .id();
 
-        let entity_id = commands.spawn_player_server(&event).id();
         conn_tracker.track_connection(client_id.get(), entity_id, display_name.clone());
-
-        let event = ToClients {
-            mode: SendMode::Broadcast,
-            event,
-        };
-
-        client_spawn_writer.send(event);
     }
 }

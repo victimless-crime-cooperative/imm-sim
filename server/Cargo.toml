@@ -12,7 +12,7 @@ bevy_replicon_renet = "0.6"
 clap = { version = "4", features = ["derive"] }
 rand = "0.8"
 
-imm-sim-shared = { path = "../shared" }
+imm-sim-shared = { path = "../shared", features = ["server"] }
 
 [dependencies.avian3d]
 version = "0.2"

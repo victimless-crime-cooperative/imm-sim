@@ -18,18 +18,19 @@ use bevy_renet::{
 };
 use bevy_replicon::prelude::*;
 use bevy_replicon_renet::{RenetChannelsExt, RepliconRenetPlugins};
-use connection_handling::{AwaitingHandshakes, ConnectionTracker, handle_handshake_events};
 use imm_sim_shared::{PROTOCOL_ID_V0_1, ProtocolPlugin};
 
 use self::{
-    connection_handling::handle_connection_events,
-    input_handling::{handle_player_commands, handle_player_inputs},
-    state_mirroring::mirror_replicated_transform,
+    connection::{
+        ServerConnectionsPlugin, handle_incoming::AwaitingHandshakes, tracking::ConnectionTracker,
+    },
+    physics::ServerPhysicsPlugin,
+    player::ServerPlayerPlugin,
 };
 
-mod connection_handling;
-mod input_handling;
-mod state_mirroring;
+mod connection;
+mod physics;
+mod player;
 
 /// Whether the server is running as a standalone process, or within a client binary.
 enum ServerRunMode {
@@ -83,7 +84,9 @@ impl Plugin for ImmSimServerPlugin {
             // Custom protocol plugin
             .add_plugins(ProtocolPlugin)
             // Physics plugin
-            .add_plugins(PhysicsPlugins::default());
+            .add_plugins(PhysicsPlugins::default())
+            // Netcode and physics should be on a fixed time-step
+            .insert_resource(Time::<Fixed>::from_hz(30.0));
         }
 
         // Server lifecycle functionality.
@@ -94,29 +97,13 @@ impl Plugin for ImmSimServerPlugin {
             .add_systems(OnEnter(ServerState::Stopped), stop_server);
 
         // Handle connections and handshakes
-        app.add_systems(
-            Update,
-            (handle_connection_events, handle_handshake_events)
-                .run_if(in_state(ServerState::Running).and(server_running)),
-        );
+        app.add_plugins(ServerConnectionsPlugin);
 
         // Handle player inputs and commands
-        app.add_systems(
-            Update,
-            (handle_player_inputs, handle_player_commands)
-                .run_if(in_state(ServerState::Running).and(server_running)),
-        );
+        app.add_plugins(ServerPlayerPlugin);
 
-        // Replication steps
-        app.add_systems(
-            // After the physics tick, but before any packets are sent, mirror the server-side
-            // `Transform`s to the associated `ReplicatedTransform` such as to then be mirrored to
-            // the client.
-            PostUpdate,
-            mirror_replicated_transform
-                .before(ServerSet::Send)
-                .run_if(in_state(ServerState::Running).and(server_running)),
-        );
+        // State sync
+        app.add_plugins(ServerPhysicsPlugin);
     }
 }
 
