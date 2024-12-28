@@ -3,6 +3,8 @@ use crate::physics::{JumpImpulse, LateralDamping, MovementAcceleration, Standing
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
+mod collision;
+
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
@@ -41,6 +43,9 @@ pub struct SpawnPlayer {
 
 impl Command for SpawnPlayer {
     fn apply(self, world: &mut World) {
+        let (shape_caster, player_top, player_bottom) =
+            collision::generate_collision_components(self.height);
+        let collision_layers = collision::generate_collision_layers();
         world
             .spawn((
                 Name::from("Player"),
@@ -54,26 +59,12 @@ impl Command for SpawnPlayer {
                 JumpImpulse::default(),
                 MovementAcceleration::default(),
                 LateralDamping::default(),
-                ShapeCaster::new(
-                    Collider::sphere(self.height * 0.15),
-                    Vec3::NEG_Y * (self.height * 0.4),
-                    Quat::IDENTITY,
-                    Dir3::NEG_Y,
-                )
-                .with_ignore_self(true)
-                .with_max_distance(self.height * 0.6),
+                shape_caster,
+                collision_layers,
             ))
             .with_children(|parent| {
-                parent.spawn((
-                    Transform::from_translation(Vec3::Y * (self.height * 0.25)),
-                    PlayerTopCollider,
-                    Collider::sphere(self.height * 0.25),
-                ));
-                parent.spawn((
-                    Transform::from_translation(Vec3::NEG_Y * (self.height * 0.25)),
-                    PlayerBottomCollider,
-                    Collider::sphere(self.height * 0.25),
-                ));
+                parent.spawn(player_top);
+                parent.spawn(player_bottom);
             });
     }
 }

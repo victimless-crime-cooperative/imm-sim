@@ -10,6 +10,14 @@ impl Plugin for CharacterPhysicsPlugin {
     }
 }
 
+#[derive(Default, PhysicsLayer)]
+pub enum CoLayer {
+    #[default]
+    Environment,
+    Player,
+    Pickup,
+}
+
 #[derive(Component)]
 pub struct MovementAcceleration(pub f32);
 #[derive(Component)]
