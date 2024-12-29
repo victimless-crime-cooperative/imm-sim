@@ -1,5 +1,7 @@
 use crate::camera::CameraConfig;
-use crate::physics::{JumpImpulse, LateralDamping, MovementAcceleration, StandingAction};
+use crate::physics::{
+    HeadBlocked, JumpImpulse, LateralDamping, MovementAcceleration, StandingAction,
+};
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
@@ -123,14 +125,18 @@ fn handle_head_collider(
 
 fn handle_grounded(
     input: Res<ButtonInput<KeyCode>>,
-    mut player: Query<(&ShapeHits, &mut PlayerState)>,
+    mut player: Query<(&ShapeHits, &mut PlayerState, Has<HeadBlocked>)>,
 ) {
-    if let Ok((hits, mut player_state)) = player.get_single_mut() {
+    if let Ok((hits, mut player_state, has_headblocked)) = player.get_single_mut() {
         if !hits.is_empty() {
             if input.pressed(KeyCode::KeyQ) {
                 *player_state = PlayerState::Crouching;
             } else {
-                *player_state = PlayerState::Standing;
+                if !has_headblocked {
+                    *player_state = PlayerState::Standing;
+                } else {
+                    *player_state = PlayerState::Crouching;
+                }
             }
         } else {
             *player_state = PlayerState::Airborne;

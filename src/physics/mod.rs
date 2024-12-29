@@ -1,11 +1,13 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
+use crate::player::PlayerTopCollider;
+
 pub struct CharacterPhysicsPlugin;
 
 impl Plugin for CharacterPhysicsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, apply_movement_damping)
+        app.add_systems(Update, (apply_movement_damping, track_head_blockage))
             .add_observer(execute_standing_actions);
     }
 }
@@ -18,6 +20,8 @@ pub enum CoLayer {
     Pickup,
 }
 
+#[derive(Component)]
+pub struct HeadBlocked;
 #[derive(Component)]
 pub struct MovementAcceleration(pub f32);
 #[derive(Component)]
@@ -62,6 +66,30 @@ fn execute_standing_actions(
                 linear_velocity.0 += direction * movement_acceleration.0 * time.delta_secs();
             }
             StandingAction::Jump => linear_velocity.y = jump_impulse.0,
+        }
+    }
+}
+
+fn track_head_blockage(
+    mut commands: Commands,
+    collisions: Res<Collisions>,
+    parent_query: Query<Has<HeadBlocked>, Without<PlayerTopCollider>>,
+    player_query: Query<(Entity, &Parent), With<PlayerTopCollider>>,
+) {
+    for (head_entity, parent) in &player_query {
+        let has_headblocked = parent_query.get(parent.get()).unwrap();
+        if collisions
+            .collisions_with_entity(head_entity)
+            .next()
+            .is_some()
+        {
+            if !has_headblocked {
+                commands.entity(parent.get()).insert(HeadBlocked);
+            }
+        } else {
+            if has_headblocked {
+                commands.entity(parent.get()).remove::<HeadBlocked>();
+            }
         }
     }
 }
