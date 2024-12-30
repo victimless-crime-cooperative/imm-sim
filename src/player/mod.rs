@@ -1,14 +1,22 @@
 use crate::camera::CameraConfig;
-use crate::physics::{JumpImpulse, LateralDamping, MovementAcceleration, StandingAction};
+use crate::physics::{
+    HeadBlocked, JumpImpulse, LateralDamping, MovementAcceleration, StandingAction,
+};
 use avian3d::prelude::*;
 use bevy::prelude::*;
+
+mod collision;
 
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup)
-            .add_systems(Update, (read_movement_inputs, handle_grounded));
+            .add_systems(
+                Update,
+                (read_movement_inputs, handle_grounded, handle_head_collider),
+            )
+            .register_type::<PlayerState>();
     }
 }
 
@@ -21,7 +29,8 @@ pub struct Player {
     pub height: f32,
 }
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Reflect)]
+#[reflect(Component)]
 pub enum PlayerState {
     Standing,
     Crouching,
@@ -36,8 +45,12 @@ pub struct SpawnPlayer {
 
 impl Command for SpawnPlayer {
     fn apply(self, world: &mut World) {
+        let (shape_caster, player_top, player_bottom) =
+            collision::generate_collision_components(self.height);
+        let collision_layers = collision::generate_collision_layers();
         world
             .spawn((
+                Name::from("Player"),
                 Player {
                     height: self.height,
                 },
@@ -48,33 +61,19 @@ impl Command for SpawnPlayer {
                 JumpImpulse::default(),
                 MovementAcceleration::default(),
                 LateralDamping::default(),
-                ShapeCaster::new(
-                    Collider::sphere(0.3),
-                    Vec3::ZERO,
-                    Quat::IDENTITY,
-                    Dir3::NEG_Y,
-                )
-                .with_ignore_self(true)
-                .with_max_distance(1.0),
+                shape_caster,
+                collision_layers,
             ))
             .with_children(|parent| {
-                parent.spawn((
-                    Transform::from_translation(Vec3::Y * self.height * 0.75),
-                    PlayerTopCollider,
-                    Collider::sphere(0.25),
-                ));
-                parent.spawn((
-                    Transform::from_translation(Vec3::Y * self.height * 0.25),
-                    PlayerBottomCollider,
-                    Collider::sphere(0.25),
-                ));
+                parent.spawn(player_top);
+                parent.spawn(player_bottom);
             });
     }
 }
 
 fn setup(mut commands: Commands) {
     commands.queue(SpawnPlayer {
-        height: 2.0,
+        height: 1.0,
         translation: Vec3::NEG_Z + Vec3::Y * 30.0,
     });
 }
@@ -101,16 +100,43 @@ fn read_movement_inputs(
     }
 }
 
+fn handle_head_collider(
+    mut commands: Commands,
+    player_query: Query<&PlayerState>,
+    head_query: Query<(Entity, Has<Sensor>), With<PlayerTopCollider>>,
+) {
+    for player in &player_query {
+        for (head, has_sensor) in &head_query {
+            match *player {
+                PlayerState::Crouching => {
+                    if !has_sensor {
+                        commands.entity(head).insert(Sensor);
+                    }
+                }
+                _ => {
+                    if has_sensor {
+                        commands.entity(head).remove::<Sensor>();
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn handle_grounded(
     input: Res<ButtonInput<KeyCode>>,
-    mut player: Query<(&ShapeHits, &mut PlayerState)>,
+    mut player: Query<(&ShapeHits, &mut PlayerState, Has<HeadBlocked>)>,
 ) {
-    if let Ok((hits, mut player_state)) = player.get_single_mut() {
+    if let Ok((hits, mut player_state, has_headblocked)) = player.get_single_mut() {
         if !hits.is_empty() {
             if input.pressed(KeyCode::KeyQ) {
                 *player_state = PlayerState::Crouching;
             } else {
-                *player_state = PlayerState::Standing;
+                if !has_headblocked {
+                    *player_state = PlayerState::Standing;
+                } else {
+                    *player_state = PlayerState::Crouching;
+                }
             }
         } else {
             *player_state = PlayerState::Airborne;
