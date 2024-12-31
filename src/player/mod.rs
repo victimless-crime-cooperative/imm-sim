@@ -14,7 +14,12 @@ impl Plugin for PlayerPlugin {
         app.add_systems(Startup, setup)
             .add_systems(
                 Update,
-                (read_movement_inputs, handle_grounded, handle_head_collider),
+                (
+                    read_movement_inputs,
+                    handle_grounded,
+                    handle_head_collider,
+                    display_slope,
+                ),
             )
             .register_type::<PlayerState>();
     }
@@ -72,13 +77,25 @@ impl Command for SpawnPlayer {
     }
 }
 
+#[derive(Component)]
+pub struct SlopeDisplay;
+
 fn setup(mut commands: Commands) {
     commands.queue(SpawnPlayer {
         height: 1.0,
         translation: Vec3::NEG_Z + Vec3::Y * 30.0,
     });
 
-    commands.spawn(Text::new("Slope: "));
+    commands.spawn((SlopeDisplay, Text::new("Slope: ")));
+}
+
+fn display_slope(
+    display_query: Single<&mut Text, With<SlopeDisplay>>,
+    slope_query: Single<&Slope>,
+) {
+    let slope = slope_query.into_inner();
+    let mut display = display_query.into_inner();
+    display.0 = format!("Slope: {}", slope.0);
 }
 
 fn read_movement_inputs(
