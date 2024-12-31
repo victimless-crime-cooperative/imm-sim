@@ -7,3 +7,6 @@ edition = "2024"
 avian3d = {version = "0.2", features = ["3d"]}
 bevy = "0.15.0"
 bevy-inspector-egui = "0.28.0"
+
+[profile.dev.package."*"]
+opt-level = 3

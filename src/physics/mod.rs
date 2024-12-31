@@ -28,6 +28,8 @@ pub struct MovementAcceleration(pub f32);
 pub struct LateralDamping(pub f32);
 #[derive(Component)]
 pub struct JumpImpulse(pub f32);
+#[derive(Component, Default)]
+pub struct Slope(pub f32);
 
 impl Default for MovementAcceleration {
     fn default() -> Self {

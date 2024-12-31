@@ -1,6 +1,6 @@
 use crate::camera::CameraConfig;
 use crate::physics::{
-    HeadBlocked, JumpImpulse, LateralDamping, MovementAcceleration, StandingAction,
+    HeadBlocked, JumpImpulse, LateralDamping, MovementAcceleration, Slope, StandingAction,
 };
 use avian3d::prelude::*;
 use bevy::prelude::*;
@@ -61,6 +61,7 @@ impl Command for SpawnPlayer {
                 JumpImpulse::default(),
                 MovementAcceleration::default(),
                 LateralDamping::default(),
+                Slope::default(),
                 shape_caster,
                 collision_layers,
             ))
@@ -76,6 +77,8 @@ fn setup(mut commands: Commands) {
         height: 1.0,
         translation: Vec3::NEG_Z + Vec3::Y * 30.0,
     });
+
+    commands.spawn(Text::new("Slope: "));
 }
 
 fn read_movement_inputs(
@@ -130,10 +133,15 @@ fn handle_head_collider(
 
 fn handle_grounded(
     input: Res<ButtonInput<KeyCode>>,
-    mut player: Query<(&ShapeHits, &mut PlayerState, Has<HeadBlocked>)>,
+    mut player: Query<(&ShapeHits, &mut PlayerState, &mut Slope, Has<HeadBlocked>)>,
 ) {
-    if let Ok((hits, mut player_state, has_headblocked)) = player.get_single_mut() {
-        if !hits.is_empty() {
+    if let Ok((hits, mut player_state, mut slope, has_headblocked)) = player.get_single_mut() {
+        let is_grounded = hits.iter().any(|hit| {
+            slope.0 = (Quat::IDENTITY * -hit.normal2).angle_between(Vec3::Y).abs();
+            true
+        });
+
+        if is_grounded {
             if input.pressed(KeyCode::KeyQ) {
                 *player_state = PlayerState::Crouching;
             } else {
