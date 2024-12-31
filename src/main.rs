@@ -13,7 +13,7 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             PhysicsPlugins::default(),
-            PhysicsDebugPlugin::default(),
+            // PhysicsDebugPlugin::default(),
             WorldInspectorPlugin::default(),
         ))
         // Plugins from this crate

@@ -13,18 +13,21 @@ pub fn generate_collision_components(height: f32) -> (ShapeCaster, impl Bundle, 
         Dir3::NEG_Y,
     )
     .with_ignore_self(true)
-    .with_max_distance(height * 0.6);
+    .with_max_distance(height * 0.6)
+    .with_query_filter(SpatialQueryFilter::default().with_mask(CoLayer::Environment));
 
     let top_collider = (
         Transform::from_translation(Vec3::Y * (height * 0.25)),
         collision_sphere.clone(),
         PlayerTopCollider,
+        generate_collision_layers(),
     );
 
     let bottom_collider = (
         Transform::from_translation(Vec3::NEG_Y * (height * 0.25)),
         PlayerBottomCollider,
         collision_sphere,
+        generate_collision_layers(),
     );
 
     (shape_caster, top_collider, bottom_collider)

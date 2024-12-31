@@ -74,16 +74,16 @@ fn track_head_blockage(
     mut commands: Commands,
     collisions: Res<Collisions>,
     parent_query: Query<Has<HeadBlocked>, Without<PlayerTopCollider>>,
-    player_query: Query<(Entity, &Parent), With<PlayerTopCollider>>,
+    player_head_query: Query<(Entity, &Parent, Has<Sensor>), With<PlayerTopCollider>>,
 ) {
-    for (head_entity, parent) in &player_query {
+    for (head_entity, parent, has_sensor) in &player_head_query {
         let has_headblocked = parent_query.get(parent.get()).unwrap();
         if collisions
             .collisions_with_entity(head_entity)
             .next()
             .is_some()
         {
-            if !has_headblocked {
+            if !has_headblocked && has_sensor {
                 commands.entity(parent.get()).insert(HeadBlocked);
             }
         } else {

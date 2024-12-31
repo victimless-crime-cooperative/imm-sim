@@ -29,7 +29,7 @@ pub struct Player {
     pub height: f32,
 }
 
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Default, Reflect, Eq, PartialEq)]
 #[reflect(Component)]
 pub enum PlayerState {
     Standing,
@@ -82,13 +82,14 @@ fn read_movement_inputs(
     mut commands: Commands,
     camera_config: Res<CameraConfig>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    player: Single<Entity, With<Player>>,
+    player: Single<(Entity, &PlayerState), With<Player>>,
 ) {
-    let player_entity = player.into_inner();
+    let (player_entity, state) = player.into_inner();
     let up = keyboard_input.pressed(KeyCode::KeyW);
     let down = keyboard_input.pressed(KeyCode::KeyS);
     let left = keyboard_input.pressed(KeyCode::KeyA);
     let right = keyboard_input.pressed(KeyCode::KeyD);
+    let space = keyboard_input.pressed(KeyCode::Space);
 
     let horizontal = right as i8 - left as i8;
     let vertical = up as i8 - down as i8;
@@ -97,6 +98,10 @@ fn read_movement_inputs(
 
     if direction != Vec3::ZERO {
         commands.trigger_targets(StandingAction::Run(direction), player_entity);
+    }
+
+    if space && *state != PlayerState::Airborne {
+        commands.trigger_targets(StandingAction::Jump, player_entity);
     }
 }
 
