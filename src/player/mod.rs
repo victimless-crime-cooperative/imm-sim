@@ -1,7 +1,6 @@
+use crate::actions::StandingAction;
 use crate::camera::CameraConfig;
-use crate::physics::{
-    HeadBlocked, JumpImpulse, LateralDamping, MovementAcceleration, SlopeData, StandingAction,
-};
+use crate::physics::{HeadBlocked, JumpImpulse, LateralDamping, MovementAcceleration, SlopeData};
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
@@ -41,6 +40,7 @@ pub enum PlayerState {
     Crouching,
     #[default]
     Airborne,
+    Sliding,
 }
 
 pub struct SpawnPlayer {
@@ -110,6 +110,8 @@ fn read_movement_inputs(
     let left = keyboard_input.pressed(KeyCode::KeyA);
     let right = keyboard_input.pressed(KeyCode::KeyD);
     let space = keyboard_input.pressed(KeyCode::Space);
+    let crouch = keyboard_input.pressed(KeyCode::KeyQ);
+    let uncrouch = keyboard_input.just_released(KeyCode::KeyQ);
 
     let horizontal = right as i8 - left as i8;
     let vertical = up as i8 - down as i8;
@@ -120,8 +122,20 @@ fn read_movement_inputs(
         commands.trigger_targets(StandingAction::Run(direction), player_entity);
     }
 
-    if space && *state != PlayerState::Airborne {
-        commands.trigger_targets(StandingAction::Jump, player_entity);
+    let grounded = *state != PlayerState::Airborne;
+
+    if grounded {
+        if space {
+            commands.trigger_targets(StandingAction::Jump, player_entity);
+        }
+
+        if crouch {
+            commands.trigger_targets(StandingAction::Crouch(direction), player_entity);
+        }
+
+        if uncrouch {
+            commands.trigger_targets(StandingAction::Uncrouch, player_entity);
+        }
     }
 }
 

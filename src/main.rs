@@ -2,6 +2,7 @@ use avian3d::prelude::*;
 use bevy::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
+pub mod actions;
 pub mod camera;
 pub mod debug_environment;
 pub mod physics;

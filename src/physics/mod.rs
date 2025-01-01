@@ -1,6 +1,7 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
+use crate::actions::StandingAction;
 use crate::player::{PlayerState, PlayerTopCollider};
 
 pub struct CharacterPhysicsPlugin;
@@ -65,14 +66,6 @@ impl Default for JumpImpulse {
     }
 }
 
-#[derive(Event)]
-pub enum StandingAction {
-    Run(Vec3),
-    Jump,
-    Crouch(Vec3),
-    ReleaseCrouch,
-}
-
 fn execute_standing_actions(
     trigger: Trigger<StandingAction>,
     time: Res<Time>,
@@ -97,7 +90,7 @@ fn execute_standing_actions(
                     *player_state = PlayerState::Crouching;
                 } else {
                     let effective_slope = slope.get_slope_from_direction(*direction);
-                    if effective_slope <= 0.0 {
+                    if effective_slope < 0.0 {
                         *player_state = PlayerState::Crouching;
                     } else {
                     }
