@@ -1,4 +1,4 @@
-use crate::actions::StandingAction;
+use crate::actions::{AirborneAction, StandingAction};
 use crate::camera::CameraConfig;
 use crate::physics::{Grounded, JumpImpulse, LateralDamping, MovementAcceleration, SlopeData};
 use avian3d::prelude::*;
@@ -13,7 +13,12 @@ impl Plugin for PlayerPlugin {
         app.add_systems(Startup, setup)
             .add_systems(
                 Update,
-                (read_movement_inputs, handle_head_collider, display_slope),
+                (
+                    read_grounded_movement_inputs,
+                    read_airborne_movement_inputs,
+                    handle_head_collider,
+                    display_slope,
+                ),
             )
             .register_type::<PlayerState>();
     }
@@ -93,7 +98,7 @@ fn display_slope(
     display.0 = format!("Ground Normal: {}", slope.ground_normal);
 }
 
-fn read_movement_inputs(
+fn read_grounded_movement_inputs(
     mut commands: Commands,
     camera_config: Res<CameraConfig>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
@@ -127,6 +132,28 @@ fn read_movement_inputs(
 
     if uncrouch {
         commands.trigger_targets(StandingAction::Uncrouch, player_entity);
+    }
+}
+
+fn read_airborne_movement_inputs(
+    mut commands: Commands,
+    camera_config: Res<CameraConfig>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    player: Single<Entity, (With<Player>, Without<Grounded>)>,
+) {
+    let player_entity = player.into_inner();
+    let up = keyboard_input.pressed(KeyCode::KeyW);
+    let down = keyboard_input.pressed(KeyCode::KeyS);
+    let left = keyboard_input.pressed(KeyCode::KeyA);
+    let right = keyboard_input.pressed(KeyCode::KeyD);
+
+    let horizontal = right as i8 - left as i8;
+    let vertical = up as i8 - down as i8;
+
+    let direction = camera_config.interpolate(Vec2::new(horizontal as f32, vertical as f32));
+
+    if direction != Vec3::ZERO {
+        commands.trigger_targets(AirborneAction::Move(direction), player_entity);
     }
 }
 

@@ -8,3 +8,8 @@ pub enum StandingAction {
     Crouch(Vec3),
     Uncrouch,
 }
+
+#[derive(Event)]
+pub enum AirborneAction {
+    Move(Vec3),
+}

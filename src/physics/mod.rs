@@ -2,7 +2,7 @@ use avian3d::prelude::*;
 use bevy::ecs::component::StorageType;
 use bevy::prelude::*;
 
-use crate::actions::StandingAction;
+use crate::actions::{AirborneAction, StandingAction};
 use crate::player::PlayerTopCollider;
 
 pub struct CharacterPhysicsPlugin;
@@ -13,7 +13,8 @@ impl Plugin for CharacterPhysicsPlugin {
             Update,
             (apply_movement_damping, track_head_blockage, handle_grounded),
         )
-        .add_observer(execute_standing_actions);
+        .add_observer(execute_grounded_movement_actions)
+        .add_observer(execute_airborne_movement_actions);
     }
 }
 
@@ -121,7 +122,7 @@ impl Default for JumpImpulse {
     }
 }
 
-fn execute_standing_actions(
+fn execute_grounded_movement_actions(
     trigger: Trigger<StandingAction>,
     mut commands: Commands,
     time: Res<Time>,
@@ -170,6 +171,19 @@ fn execute_standing_actions(
                 if has_crouching && !has_headblocked {
                     commands.entity(entity).remove::<Crouching>();
                 }
+            }
+        }
+    }
+}
+fn execute_airborne_movement_actions(
+    trigger: Trigger<AirborneAction>,
+    time: Res<Time>,
+    mut query: Query<(&MovementAcceleration, &mut LinearVelocity), Without<Grounded>>,
+) {
+    if let Ok((movement_acceleration, mut linear_velocity)) = query.get_mut(trigger.entity()) {
+        match trigger.event() {
+            AirborneAction::Move(direction) => {
+                linear_velocity.0 += direction * movement_acceleration.0 * time.delta_secs();
             }
         }
     }
