@@ -1,7 +1,7 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
-use crate::player::PlayerTopCollider;
+use crate::player::{PlayerState, PlayerTopCollider};
 
 pub struct CharacterPhysicsPlugin;
 
@@ -28,8 +28,24 @@ pub struct MovementAcceleration(pub f32);
 pub struct LateralDamping(pub f32);
 #[derive(Component)]
 pub struct JumpImpulse(pub f32);
-#[derive(Component, Default)]
-pub struct Slope(pub f32);
+#[derive(Component)]
+pub struct SlopeData {
+    pub ground_normal: Vec3,
+}
+
+impl SlopeData {
+    pub fn get_slope_from_direction(&self, direction: Vec3) -> f32 {
+        direction.dot(self.ground_normal)
+    }
+}
+
+impl Default for SlopeData {
+    fn default() -> Self {
+        Self {
+            ground_normal: Vec3::NEG_Y,
+        }
+    }
+}
 
 impl Default for MovementAcceleration {
     fn default() -> Self {
@@ -53,14 +69,22 @@ impl Default for JumpImpulse {
 pub enum StandingAction {
     Run(Vec3),
     Jump,
+    Crouch(Vec3),
+    ReleaseCrouch,
 }
 
 fn execute_standing_actions(
     trigger: Trigger<StandingAction>,
     time: Res<Time>,
-    mut query: Query<(&MovementAcceleration, &JumpImpulse, &mut LinearVelocity)>,
+    mut query: Query<(
+        &MovementAcceleration,
+        &JumpImpulse,
+        &SlopeData,
+        &mut LinearVelocity,
+        &mut PlayerState,
+    )>,
 ) {
-    if let Ok((movement_acceleration, jump_impulse, mut linear_velocity)) =
+    if let Ok((movement_acceleration, jump_impulse, slope, mut linear_velocity, mut player_state)) =
         query.get_mut(trigger.entity())
     {
         match trigger.event() {
@@ -68,6 +92,18 @@ fn execute_standing_actions(
                 linear_velocity.0 += direction * movement_acceleration.0 * time.delta_secs();
             }
             StandingAction::Jump => linear_velocity.y = jump_impulse.0,
+            StandingAction::Crouch(direction) => {
+                if *direction == Vec3::ZERO {
+                    *player_state = PlayerState::Crouching;
+                } else {
+                    let effective_slope = slope.get_slope_from_direction(*direction);
+                    if effective_slope <= 0.0 {
+                        *player_state = PlayerState::Crouching;
+                    } else {
+                    }
+                }
+            }
+            _ => (),
         }
     }
 }

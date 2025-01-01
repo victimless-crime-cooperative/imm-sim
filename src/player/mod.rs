@@ -1,6 +1,6 @@
 use crate::camera::CameraConfig;
 use crate::physics::{
-    HeadBlocked, JumpImpulse, LateralDamping, MovementAcceleration, Slope, StandingAction,
+    HeadBlocked, JumpImpulse, LateralDamping, MovementAcceleration, SlopeData, StandingAction,
 };
 use avian3d::prelude::*;
 use bevy::prelude::*;
@@ -66,7 +66,7 @@ impl Command for SpawnPlayer {
                 JumpImpulse::default(),
                 MovementAcceleration::default(),
                 LateralDamping::default(),
-                Slope::default(),
+                SlopeData::default(),
                 shape_caster,
                 collision_layers,
             ))
@@ -91,11 +91,11 @@ fn setup(mut commands: Commands) {
 
 fn display_slope(
     display_query: Single<&mut Text, With<SlopeDisplay>>,
-    slope_query: Single<&Slope>,
+    slope_query: Single<&SlopeData>,
 ) {
     let slope = slope_query.into_inner();
     let mut display = display_query.into_inner();
-    display.0 = format!("Slope: {}", slope.0);
+    display.0 = format!("Ground Normal: {}", slope.ground_normal);
 }
 
 fn read_movement_inputs(
@@ -150,11 +150,16 @@ fn handle_head_collider(
 
 fn handle_grounded(
     input: Res<ButtonInput<KeyCode>>,
-    mut player: Query<(&ShapeHits, &mut PlayerState, &mut Slope, Has<HeadBlocked>)>,
+    mut player: Query<(
+        &ShapeHits,
+        &mut PlayerState,
+        &mut SlopeData,
+        Has<HeadBlocked>,
+    )>,
 ) {
-    if let Ok((hits, mut player_state, mut slope, has_headblocked)) = player.get_single_mut() {
+    if let Ok((hits, mut player_state, mut slope_data, has_headblocked)) = player.get_single_mut() {
         let is_grounded = hits.iter().any(|hit| {
-            slope.0 = (Quat::IDENTITY * -hit.normal2).angle_between(Vec3::Y).abs();
+            slope_data.ground_normal = hit.normal2;
             true
         });
 
