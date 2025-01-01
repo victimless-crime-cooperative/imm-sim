@@ -1,6 +1,6 @@
 use crate::actions::StandingAction;
 use crate::camera::CameraConfig;
-use crate::physics::{HeadBlocked, JumpImpulse, LateralDamping, MovementAcceleration, SlopeData};
+use crate::physics::{Grounded, JumpImpulse, LateralDamping, MovementAcceleration, SlopeData};
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
@@ -13,12 +13,7 @@ impl Plugin for PlayerPlugin {
         app.add_systems(Startup, setup)
             .add_systems(
                 Update,
-                (
-                    read_movement_inputs,
-                    handle_grounded,
-                    handle_head_collider,
-                    display_slope,
-                ),
+                (read_movement_inputs, handle_head_collider, display_slope),
             )
             .register_type::<PlayerState>();
     }
@@ -102,16 +97,16 @@ fn read_movement_inputs(
     mut commands: Commands,
     camera_config: Res<CameraConfig>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    player: Single<(Entity, &PlayerState), With<Player>>,
+    player: Single<Entity, (With<Player>, With<Grounded>)>,
 ) {
-    let (player_entity, state) = player.into_inner();
+    let player_entity = player.into_inner();
     let up = keyboard_input.pressed(KeyCode::KeyW);
     let down = keyboard_input.pressed(KeyCode::KeyS);
     let left = keyboard_input.pressed(KeyCode::KeyA);
     let right = keyboard_input.pressed(KeyCode::KeyD);
     let space = keyboard_input.pressed(KeyCode::Space);
     let crouch = keyboard_input.pressed(KeyCode::KeyQ);
-    let uncrouch = keyboard_input.just_released(KeyCode::KeyQ);
+    let uncrouch = !keyboard_input.pressed(KeyCode::KeyQ);
 
     let horizontal = right as i8 - left as i8;
     let vertical = up as i8 - down as i8;
@@ -122,20 +117,16 @@ fn read_movement_inputs(
         commands.trigger_targets(StandingAction::Run(direction), player_entity);
     }
 
-    let grounded = *state != PlayerState::Airborne;
+    if space {
+        commands.trigger_targets(StandingAction::Jump, player_entity);
+    }
 
-    if grounded {
-        if space {
-            commands.trigger_targets(StandingAction::Jump, player_entity);
-        }
+    if crouch {
+        commands.trigger_targets(StandingAction::Crouch(direction), player_entity);
+    }
 
-        if crouch {
-            commands.trigger_targets(StandingAction::Crouch(direction), player_entity);
-        }
-
-        if uncrouch {
-            commands.trigger_targets(StandingAction::Uncrouch, player_entity);
-        }
+    if uncrouch {
+        commands.trigger_targets(StandingAction::Uncrouch, player_entity);
     }
 }
 
@@ -158,37 +149,6 @@ fn handle_head_collider(
                     }
                 }
             }
-        }
-    }
-}
-
-fn handle_grounded(
-    input: Res<ButtonInput<KeyCode>>,
-    mut player: Query<(
-        &ShapeHits,
-        &mut PlayerState,
-        &mut SlopeData,
-        Has<HeadBlocked>,
-    )>,
-) {
-    if let Ok((hits, mut player_state, mut slope_data, has_headblocked)) = player.get_single_mut() {
-        let is_grounded = hits.iter().any(|hit| {
-            slope_data.ground_normal = hit.normal2;
-            true
-        });
-
-        if is_grounded {
-            if input.pressed(KeyCode::KeyQ) {
-                *player_state = PlayerState::Crouching;
-            } else {
-                if !has_headblocked {
-                    *player_state = PlayerState::Standing;
-                } else {
-                    *player_state = PlayerState::Crouching;
-                }
-            }
-        } else {
-            *player_state = PlayerState::Airborne;
         }
     }
 }

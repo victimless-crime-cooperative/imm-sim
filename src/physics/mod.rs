@@ -1,15 +1,19 @@
 use avian3d::prelude::*;
+use bevy::ecs::component::StorageType;
 use bevy::prelude::*;
 
 use crate::actions::StandingAction;
-use crate::player::{PlayerState, PlayerTopCollider};
+use crate::player::PlayerTopCollider;
 
 pub struct CharacterPhysicsPlugin;
 
 impl Plugin for CharacterPhysicsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (apply_movement_damping, track_head_blockage))
-            .add_observer(execute_standing_actions);
+        app.add_systems(
+            Update,
+            (apply_movement_damping, track_head_blockage, handle_grounded),
+        )
+        .add_observer(execute_standing_actions);
     }
 }
 
@@ -21,6 +25,57 @@ pub enum CoLayer {
     Pickup,
 }
 
+pub struct Crouching;
+
+impl Component for Crouching {
+    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+    fn register_component_hooks(hooks: &mut bevy::ecs::component::ComponentHooks) {
+        hooks.on_remove(|mut world, entity, _| {
+            let children = world.entity(entity).components::<&Children>();
+            let mut head_entity: Option<Entity> = None;
+            for child in children {
+                let is_top_collider = world.entity(*child).contains::<PlayerTopCollider>();
+                let has_sensor = world.entity(*child).contains::<Sensor>();
+
+                if is_top_collider && has_sensor {
+                    head_entity = Some(*child);
+                }
+            }
+            if let Some(child_entity) = head_entity {
+                world.commands().entity(child_entity).remove::<Sensor>();
+            }
+        });
+
+        hooks.on_add(|mut world, entity, _| {
+            let children = world.entity(entity).components::<&Children>();
+            let mut head_entity: Option<Entity> = None;
+            for child in children {
+                let is_top_collider = world.entity(*child).contains::<PlayerTopCollider>();
+                let has_sensor = world.entity(*child).contains::<Sensor>();
+
+                if is_top_collider && !has_sensor {
+                    head_entity = Some(*child);
+                }
+            }
+            if let Some(child_entity) = head_entity {
+                world.commands().entity(child_entity).insert(Sensor);
+            }
+        });
+    }
+}
+
+pub struct Grounded;
+
+impl Component for Grounded {
+    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+    fn register_component_hooks(hooks: &mut bevy::ecs::component::ComponentHooks) {
+        hooks.on_add(|mut world, entity, _| {
+            if world.entity(entity).contains::<Crouching>() {
+                world.commands().entity(entity).remove::<Crouching>();
+            }
+        });
+    }
+}
 #[derive(Component)]
 pub struct HeadBlocked;
 #[derive(Component)]
@@ -68,17 +123,30 @@ impl Default for JumpImpulse {
 
 fn execute_standing_actions(
     trigger: Trigger<StandingAction>,
+    mut commands: Commands,
     time: Res<Time>,
-    mut query: Query<(
-        &MovementAcceleration,
-        &JumpImpulse,
-        &SlopeData,
-        &mut LinearVelocity,
-        &mut PlayerState,
-    )>,
+    mut query: Query<
+        (
+            Entity,
+            &MovementAcceleration,
+            &JumpImpulse,
+            &SlopeData,
+            &mut LinearVelocity,
+            Has<Crouching>,
+            Has<HeadBlocked>,
+        ),
+        With<Grounded>,
+    >,
 ) {
-    if let Ok((movement_acceleration, jump_impulse, slope, mut linear_velocity, mut player_state)) =
-        query.get_mut(trigger.entity())
+    if let Ok((
+        entity,
+        movement_acceleration,
+        jump_impulse,
+        slope,
+        mut linear_velocity,
+        has_crouching,
+        has_headblocked,
+    )) = query.get_mut(trigger.entity())
     {
         match trigger.event() {
             StandingAction::Run(direction) => {
@@ -87,16 +155,22 @@ fn execute_standing_actions(
             StandingAction::Jump => linear_velocity.y = jump_impulse.0,
             StandingAction::Crouch(direction) => {
                 if *direction == Vec3::ZERO {
-                    *player_state = PlayerState::Crouching;
+                    if !has_crouching {
+                        commands.entity(entity).insert(Crouching);
+                    }
                 } else {
                     let effective_slope = slope.get_slope_from_direction(*direction);
-                    if effective_slope < 0.0 {
-                        *player_state = PlayerState::Crouching;
+                    if effective_slope >= 0.0 && !has_crouching {
+                        commands.entity(entity).insert(Crouching);
                     } else {
                     }
                 }
             }
-            _ => (),
+            StandingAction::Uncrouch => {
+                if has_crouching && !has_headblocked {
+                    commands.entity(entity).remove::<Crouching>();
+                }
+            }
         }
     }
 }
@@ -121,6 +195,24 @@ fn track_head_blockage(
             if has_headblocked {
                 commands.entity(parent.get()).remove::<HeadBlocked>();
             }
+        }
+    }
+}
+
+fn handle_grounded(
+    mut commands: Commands,
+    mut player: Query<(Entity, &ShapeHits, &mut SlopeData, Has<Grounded>)>,
+) {
+    if let Ok((entity, hits, mut slope_data, has_grounded)) = player.get_single_mut() {
+        let is_grounded = hits.iter().any(|hit| {
+            slope_data.ground_normal = hit.normal2;
+            true
+        });
+
+        if is_grounded && !has_grounded {
+            commands.entity(entity).insert(Grounded);
+        } else if !is_grounded && has_grounded {
+            commands.entity(entity).remove::<Grounded>();
         }
     }
 }

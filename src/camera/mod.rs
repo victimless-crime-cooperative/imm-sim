@@ -1,4 +1,5 @@
-use crate::player::{Player, PlayerState};
+use crate::physics::Crouching;
+use crate::player::Player;
 use bevy::{input::mouse::AccumulatedMouseMotion, prelude::*};
 
 pub struct CameraPlugin;
@@ -88,16 +89,15 @@ fn position_camera(
     time: Res<Time>,
     camera_config: Res<CameraConfig>,
     camera: Single<&mut Transform, With<MainCamera>>,
-    player_entity: Single<(&Player, &PlayerState, &Transform), Without<MainCamera>>,
+    player_entity: Single<(&Player, &Transform, Has<Crouching>), Without<MainCamera>>,
 ) {
     let mut camera_transform = camera.into_inner();
-    let (player, player_state, player_transform) = player_entity.into_inner();
+    let (player, player_transform, has_crouching) = player_entity.into_inner();
 
-    let desired_translation = match *player_state {
-        PlayerState::Crouching => {
-            player_transform.translation + (Vec3::NEG_Y * player.height * 0.2)
-        }
-        _ => player_transform.translation + Vec3::Y * (player.height * 0.4),
+    let desired_translation = if has_crouching {
+        player_transform.translation + (Vec3::NEG_Y * player.height * 0.2)
+    } else {
+        player_transform.translation + Vec3::Y * (player.height * 0.4)
     };
 
     camera_transform.translation.smooth_nudge(
