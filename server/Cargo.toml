@@ -1,0 +1,29 @@
+[package]
+name = "imm-sim-server"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy = "0.15"
+bevy-inspector-egui = "0.28"
+bevy_renet = "1"
+bevy_replicon = "0.29"
+bevy_replicon_renet = "0.6"
+clap = { version = "4", features = ["derive"] }
+rand = "0.8"
+
+imm-sim-shared = { path = "../shared", features = ["server"] }
+
+[dependencies.avian3d]
+version = "0.2"
+default-features = false
+features = [
+  "3d",
+  "f32",
+  "default-collider",
+  "parry-f32",
+  "bevy_scene",
+  "enhanced-determinism",
+  "parallel",
+  "serialize",
+]

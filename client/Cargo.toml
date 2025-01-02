@@ -1,0 +1,16 @@
+[package]
+name = "imm-sim"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+avian3d = { version = "0.2", features = ["enhanced-determinism"] }
+bevy = "0.15"
+bevy_egui = "0.31"
+bevy-inspector-egui = "0.28"
+bevy_renet = "1"
+bevy_replicon = "0.29"
+bevy_replicon_renet = "0.6"
+
+imm-sim-server = { path = "../server" }
+imm-sim-shared = { path = "../shared", features = ["client"] }
