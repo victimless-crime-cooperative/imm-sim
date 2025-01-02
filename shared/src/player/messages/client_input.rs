@@ -5,13 +5,19 @@ use serde::{Deserialize, Serialize};
 ///
 /// This allows the server to assume that, for example, a crouching player remains crouching should
 /// a single message not be delivered.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 pub enum DigitalInput {
     #[default]
     NotPressed,
-    StartPress,
     ContinuePress,
     ReleasePress,
+    StartPress,
+}
+
+impl DigitalInput {
+    pub fn is_pressed(&self) -> bool {
+        matches!(self, Self::ContinuePress | Self::StartPress)
+    }
 }
 
 /// Each tick, the client should dispatch one of these events such as to notify the server of all
