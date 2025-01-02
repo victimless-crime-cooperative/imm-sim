@@ -1,11 +1,16 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
 use imm_sim_shared::{
-    ownership::OwnedByClient, physics::components::transform::ReplicatedTransform,
+    ownership::OwnedByClient,
+    physics::components::movement::{JumpImpulse, LateralDamping, MovementAcceleration, SlopeData},
+    physics::components::transform::ReplicatedTransform,
     player::components::PlayerAvatarColor,
 };
 
+use crate::camera::{CameraConfig, OwnedCamera};
 use crate::connect::{ClientId, ConnectionState};
+
+mod collision;
 
 /// At present this plugin will manage any client-side state for the [`Player`]-related entities.
 ///
@@ -50,25 +55,36 @@ fn spawn_player_mesh(
         let mesh = meshes.add(Capsule3d::new(0.3, 2.0));
         let material = materials.add(StandardMaterial::from_color(color.0));
 
+        let (shape_caster, player_top, player_bottom) =
+            collision::generate_collision_components(1.0);
+
+        let collision_layers = collision::generate_collision_layers();
+
         let mut cmd = commands.entity(entity);
         cmd.insert((
+            // Debug mesh and material
             Mesh3d(mesh),
             MeshMaterial3d(material),
             RigidBody::Dynamic,
             Transform::from_translation(transform.translation).rotate(transform.rotation),
-            LockedAxes::new().lock_rotation_x().lock_rotation_z(),
-            ShapeCaster::new(
-                Collider::capsule(0.3, 2.0),
-                Vec3::ZERO,
-                Quat::IDENTITY,
-                Dir3::NEG_Y,
-            )
-            .with_ignore_self(true)
-            .with_max_distance(1.0),
-        ));
+            LockedAxes::ROTATION_LOCKED,
+            JumpImpulse::default(),
+            MovementAcceleration::default(),
+            LateralDamping::default(),
+            SlopeData::default(),
+            shape_caster,
+            collision_layers,
+        ))
+        .with_children(|parent| {
+            parent.spawn(player_top);
+            parent.spawn(player_bottom);
+        });
 
         if this_client.0 == owned_by.client_id {
             cmd.insert(OwnedPlayer);
+
+            commands.spawn((Camera3d::default(), Transform::default(), OwnedCamera));
+            commands.insert_resource(CameraConfig::default());
         }
     }
 }

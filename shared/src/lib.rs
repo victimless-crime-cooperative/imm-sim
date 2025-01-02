@@ -11,6 +11,7 @@ use self::{
     },
 };
 
+pub mod actions;
 pub mod handshake;
 pub mod ownership;
 pub mod physics;

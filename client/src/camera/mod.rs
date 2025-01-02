@@ -1,13 +1,13 @@
-use crate::player::{Player, PlayerState};
 use bevy::{input::mouse::AccumulatedMouseMotion, prelude::*};
+use imm_sim_shared::physics::components::movement::Crouching;
+
+use crate::player::OwnedPlayer;
 
 pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(CameraConfig::default())
-            .add_systems(Startup, setup)
-            .add_systems(Update, (read_rotation_inputs, position_camera));
+        app.add_systems(Update, (read_rotation_inputs, position_camera));
     }
 }
 
@@ -74,28 +74,21 @@ fn read_rotation_inputs(
 }
 
 #[derive(Component)]
-pub struct MainCamera;
-
-fn setup(mut commands: Commands) {
-    commands.spawn((
-        Camera3d::default(),
-        Transform::from_translation(Vec3::ZERO),
-        MainCamera,
-    ));
-}
+pub struct OwnedCamera;
 
 fn position_camera(
     time: Res<Time>,
     camera_config: Res<CameraConfig>,
-    camera: Single<&mut Transform, With<MainCamera>>,
-    player_entity: Single<(&Player, &PlayerState, &Transform), Without<MainCamera>>,
+    camera: Single<&mut Transform, With<OwnedCamera>>,
+    player_entity: Single<(&Transform, Has<Crouching>), (Without<OwnedCamera>, With<OwnedPlayer>)>,
 ) {
     let mut camera_transform = camera.into_inner();
-    let (player, player_state, player_transform) = player_entity.into_inner();
+    let (player_transform, has_crouching) = player_entity.into_inner();
 
-    let desired_translation = match *player_state {
-        PlayerState::Crouching => player_transform.translation,
-        _ => player_transform.translation + Vec3::Y * (player.height * 0.4),
+    let desired_translation = if has_crouching {
+        player_transform.translation + (Vec3::NEG_Y * 0.2)
+    } else {
+        player_transform.translation + (Vec3::Y * 0.4)
     };
 
     camera_transform.translation.smooth_nudge(
