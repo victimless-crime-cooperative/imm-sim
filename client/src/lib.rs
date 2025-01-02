@@ -6,7 +6,9 @@ use self::{
     player::ClientPlayerPlugin,
 };
 
+pub mod camera;
 pub mod connect;
+pub mod debug_environment;
 pub mod input;
 pub mod physics;
 pub mod player;
@@ -23,5 +25,9 @@ impl Plugin for ImmSimClientPlugin {
         app.add_plugins(InputCollectionPlugin);
         // State sync
         app.add_plugins((ClientPhysicsPlugin, ClientPlayerPlugin));
+        // ClientSide Camera
+        app.add_plugins(camera::CameraPlugin);
+        // Simple geometry to test movement
+        app.add_plugins(debug_environment::DebugEnvironmentPlugin);
     }
 }
