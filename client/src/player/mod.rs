@@ -1,10 +1,11 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
 use imm_sim_shared::{
-    physics::components::transform::ReplicatedTransform, player::components::PlayerAvatarColor,
+    ownership::OwnedByClient, physics::components::transform::ReplicatedTransform,
+    player::components::PlayerAvatarColor,
 };
 
-use crate::connect::ConnectionState;
+use crate::connect::{ClientId, ConnectionState};
 
 /// At present this plugin will manage any client-side state for the [`Player`]-related entities.
 ///
@@ -22,21 +23,35 @@ impl Plugin for ClientPlayerPlugin {
     }
 }
 
+/// The active client's "owned" player entity is marked with this tag.
+#[derive(Component, Debug)]
+pub struct OwnedPlayer;
+
 /// Spawn the [`Mesh3d`] and [`MeshMaterial3d`] for a given player entity that does not currently
 /// have one.
 fn spawn_player_mesh(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    this_client: Res<ClientId>,
 
-    query: Query<(&PlayerAvatarColor, &ReplicatedTransform, Entity), Without<Mesh3d>>,
+    query: Query<
+        (
+            &PlayerAvatarColor,
+            &ReplicatedTransform,
+            &OwnedByClient,
+            Entity,
+        ),
+        Without<Mesh3d>,
+    >,
 
     mut commands: Commands,
 ) {
-    for (color, transform, entity) in query.iter() {
+    for (color, transform, owned_by, entity) in query.iter() {
         let mesh = meshes.add(Capsule3d::new(0.3, 2.0));
         let material = materials.add(StandardMaterial::from_color(color.0));
 
-        commands.entity(entity).insert((
+        let mut cmd = commands.entity(entity);
+        cmd.insert((
             Mesh3d(mesh),
             MeshMaterial3d(material),
             RigidBody::Dynamic,
@@ -51,6 +66,10 @@ fn spawn_player_mesh(
             .with_ignore_self(true)
             .with_max_distance(1.0),
         ));
+
+        if this_client.0 == owned_by.client_id {
+            cmd.insert(OwnedPlayer);
+        }
     }
 }
 
