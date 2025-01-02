@@ -1,7 +1,6 @@
+use crate::actions::{AirborneAction, StandingAction};
 use crate::camera::CameraConfig;
-use crate::physics::{
-    HeadBlocked, JumpImpulse, LateralDamping, MovementAcceleration, StandingAction,
-};
+use crate::physics::{Grounded, JumpImpulse, LateralDamping, MovementAcceleration, SlopeData};
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
@@ -14,7 +13,12 @@ impl Plugin for PlayerPlugin {
         app.add_systems(Startup, setup)
             .add_systems(
                 Update,
-                (read_movement_inputs, handle_grounded, handle_head_collider),
+                (
+                    read_grounded_movement_inputs,
+                    read_airborne_movement_inputs,
+                    handle_head_collider,
+                    display_slope,
+                ),
             )
             .register_type::<PlayerState>();
     }
@@ -29,13 +33,14 @@ pub struct Player {
     pub height: f32,
 }
 
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Default, Reflect, Eq, PartialEq)]
 #[reflect(Component)]
 pub enum PlayerState {
     Standing,
     Crouching,
     #[default]
     Airborne,
+    Sliding,
 }
 
 pub struct SpawnPlayer {
@@ -61,6 +66,7 @@ impl Command for SpawnPlayer {
                 JumpImpulse::default(),
                 MovementAcceleration::default(),
                 LateralDamping::default(),
+                SlopeData::default(),
                 shape_caster,
                 collision_layers,
             ))
@@ -71,18 +77,69 @@ impl Command for SpawnPlayer {
     }
 }
 
+#[derive(Component)]
+pub struct SlopeDisplay;
+
 fn setup(mut commands: Commands) {
     commands.queue(SpawnPlayer {
         height: 1.0,
         translation: Vec3::NEG_Z + Vec3::Y * 30.0,
     });
+
+    commands.spawn((SlopeDisplay, Text::new("Slope: ")));
 }
 
-fn read_movement_inputs(
+fn display_slope(
+    display_query: Single<&mut Text, With<SlopeDisplay>>,
+    slope_query: Single<&SlopeData>,
+) {
+    let slope = slope_query.into_inner();
+    let mut display = display_query.into_inner();
+    display.0 = format!("Ground Normal: {}", slope.ground_normal);
+}
+
+fn read_grounded_movement_inputs(
     mut commands: Commands,
     camera_config: Res<CameraConfig>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    player: Single<Entity, With<Player>>,
+    player: Single<Entity, (With<Player>, With<Grounded>)>,
+) {
+    let player_entity = player.into_inner();
+    let up = keyboard_input.pressed(KeyCode::KeyW);
+    let down = keyboard_input.pressed(KeyCode::KeyS);
+    let left = keyboard_input.pressed(KeyCode::KeyA);
+    let right = keyboard_input.pressed(KeyCode::KeyD);
+    let space = keyboard_input.pressed(KeyCode::Space);
+    let crouch = keyboard_input.pressed(KeyCode::KeyQ);
+    let uncrouch = !keyboard_input.pressed(KeyCode::KeyQ);
+
+    let horizontal = right as i8 - left as i8;
+    let vertical = up as i8 - down as i8;
+
+    let direction = camera_config.interpolate(Vec2::new(horizontal as f32, vertical as f32));
+
+    if direction != Vec3::ZERO {
+        commands.trigger_targets(StandingAction::Run(direction), player_entity);
+    }
+
+    if space {
+        commands.trigger_targets(StandingAction::Jump, player_entity);
+    }
+
+    if crouch {
+        commands.trigger_targets(StandingAction::Crouch(direction), player_entity);
+    }
+
+    if uncrouch {
+        commands.trigger_targets(StandingAction::Uncrouch, player_entity);
+    }
+}
+
+fn read_airborne_movement_inputs(
+    mut commands: Commands,
+    camera_config: Res<CameraConfig>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    player: Single<Entity, (With<Player>, Without<Grounded>)>,
 ) {
     let player_entity = player.into_inner();
     let up = keyboard_input.pressed(KeyCode::KeyW);
@@ -96,7 +153,7 @@ fn read_movement_inputs(
     let direction = camera_config.interpolate(Vec2::new(horizontal as f32, vertical as f32));
 
     if direction != Vec3::ZERO {
-        commands.trigger_targets(StandingAction::Run(direction), player_entity);
+        commands.trigger_targets(AirborneAction::Move(direction), player_entity);
     }
 }
 
@@ -119,27 +176,6 @@ fn handle_head_collider(
                     }
                 }
             }
-        }
-    }
-}
-
-fn handle_grounded(
-    input: Res<ButtonInput<KeyCode>>,
-    mut player: Query<(&ShapeHits, &mut PlayerState, Has<HeadBlocked>)>,
-) {
-    if let Ok((hits, mut player_state, has_headblocked)) = player.get_single_mut() {
-        if !hits.is_empty() {
-            if input.pressed(KeyCode::KeyQ) {
-                *player_state = PlayerState::Crouching;
-            } else {
-                if !has_headblocked {
-                    *player_state = PlayerState::Standing;
-                } else {
-                    *player_state = PlayerState::Crouching;
-                }
-            }
-        } else {
-            *player_state = PlayerState::Airborne;
         }
     }
 }

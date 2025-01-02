@@ -2,6 +2,7 @@ use avian3d::prelude::*;
 use bevy::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
+pub mod actions;
 pub mod camera;
 pub mod debug_environment;
 pub mod physics;
@@ -13,7 +14,7 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             PhysicsPlugins::default(),
-            PhysicsDebugPlugin::default(),
+            // PhysicsDebugPlugin::default(),
             WorldInspectorPlugin::default(),
         ))
         // Plugins from this crate

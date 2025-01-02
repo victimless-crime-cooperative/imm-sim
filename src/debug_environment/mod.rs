@@ -14,6 +14,7 @@ pub struct Block {
     translation: Vec3,
     extents: Vec3,
     color: Color,
+    rotation: Quat,
 }
 
 #[derive(Component)]
@@ -72,11 +73,12 @@ impl Command for GizmoRuler {
 }
 
 impl Block {
-    pub fn new(translation: Vec3, extents: Vec3, color: Color) -> Self {
+    pub fn new(translation: Vec3, extents: Vec3, color: Color, rotation: Quat) -> Self {
         Self {
             translation,
             extents,
             color,
+            rotation,
         }
     }
 }
@@ -94,7 +96,7 @@ impl Command for Block {
         world.spawn((
             Mesh3d(mesh_handle),
             MeshMaterial3d(material_handle),
-            Transform::from_translation(self.translation),
+            Transform::from_translation(self.translation).with_rotation(self.rotation),
             RigidBody::Static,
             Collider::cuboid(self.extents.x, self.extents.y, self.extents.z),
         ));
@@ -106,16 +108,19 @@ pub fn setup(mut commands: Commands) {
         Vec3::new(2.0, 0.5, 0.0),
         Vec3::ONE,
         Color::srgb(1.0, 0.0, 0.0),
+        Quat::IDENTITY,
     ));
     commands.queue(Block::new(
         Vec3::new(-2.0, 0.5, 0.0),
         Vec3::ONE,
         Color::srgb(1.0, 0.0, 0.0),
+        Quat::IDENTITY,
     ));
     commands.queue(Block::new(
         Vec3::new(0.0, 0.5, 2.0),
         Vec3::ONE,
         Color::srgb(0.0, 1.0, 0.0),
+        Quat::IDENTITY,
     ));
 
     // Half height barrier
@@ -123,11 +128,13 @@ pub fn setup(mut commands: Commands) {
         Vec3::new(2.0, 0.75, 2.0),
         Vec3::new(1.0, 0.5, 1.0),
         Color::srgb(0.0, 1.0, 0.0),
+        Quat::IDENTITY,
     ));
     commands.queue(Block::new(
         Vec3::NEG_Y * 0.25,
         Vec3::new(20.0, 0.5, 20.0),
         Color::WHITE,
+        Quat::from_axis_angle(Vec3::X, 20.0_f32.to_radians()),
     ));
 
     commands.queue(GizmoRuler::new(
